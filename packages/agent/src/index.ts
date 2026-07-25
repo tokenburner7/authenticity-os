@@ -64,3 +64,12 @@ export {
 
 // Utils
 export { generateId } from "./utils.js";
+
+// Persistence
+export {
+  type AgentStore,
+} from "./store.js";
+
+export {
+  SqliteAgentStore,
+} from "./sqlite-store.js";

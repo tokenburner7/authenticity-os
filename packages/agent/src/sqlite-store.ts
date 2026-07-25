@@ -39,8 +39,7 @@ export class SqliteAgentStore implements AgentStore {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         agent_id TEXT NOT NULL,
         credential_json TEXT NOT NULL,
-        saved_at TEXT NOT NULL,
-        FOREIGN KEY (agent_id) REFERENCES agent_profiles(id)
+        saved_at TEXT NOT NULL
       );
 
       CREATE INDEX IF NOT EXISTS idx_wallet_creds_agent ON wallet_credentials(agent_id);
@@ -54,8 +53,7 @@ export class SqliteAgentStore implements AgentStore {
         bio TEXT,
         capabilities TEXT NOT NULL DEFAULT '[]',
         created_at TEXT NOT NULL,
-        UNIQUE(agent_id, known_id),
-        FOREIGN KEY (agent_id) REFERENCES agent_profiles(id)
+        UNIQUE(agent_id, known_id)
       );
 
       CREATE INDEX IF NOT EXISTS idx_known_agents_agent ON known_agents(agent_id);
@@ -64,8 +62,7 @@ export class SqliteAgentStore implements AgentStore {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         agent_id TEXT NOT NULL,
         other_agent_id TEXT NOT NULL,
-        interacted_at TEXT NOT NULL,
-        FOREIGN KEY (agent_id) REFERENCES agent_profiles(id)
+        interacted_at TEXT NOT NULL
       );
 
       CREATE INDEX IF NOT EXISTS idx_interactions_agent ON interaction_log(agent_id);

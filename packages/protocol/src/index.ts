@@ -67,6 +67,13 @@ export {
   type ReputationStore,
 } from "./reputation.js";
 
+// W3C Verifiable Credential interop
+export {
+  toW3CVC,
+  fromW3CVC,
+  type W3CVerifiableCredential,
+} from "./w3c.js";
+
 // Verification
 export {
   verifyCredential,

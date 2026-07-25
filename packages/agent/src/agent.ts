@@ -20,6 +20,7 @@ import {
 } from "@auth/protocol";
 import type { AgentProfile, AgentCapability, DelegatedContent } from "./types.js";
 import type { AgentWallet } from "./wallet.js";
+import type { AgentStore } from "./store.js";
 import type { LLMProvider } from "./llm.js";
 
 export interface AgentConfig {
@@ -154,6 +155,55 @@ export class Agent {
 
   getKnownAgents(): AgentProfile[] {
     return Array.from(this.wallet.knownAgents.values());
+  }
+
+  // ── Persistence ──────────────────────────────────────────
+
+  /**
+   * Save the agent's full state to an AgentStore.
+   * Persists: profile, wallet credentials, social graph, interaction log.
+   */
+  save(store: AgentStore): void {
+    store.saveProfile(this.profile);
+
+    // Save wallet credentials
+    for (const credential of this.wallet.credentials) {
+      store.saveCredential(this.profile.id, credential);
+    }
+
+    // Save social graph
+    for (const knownAgent of Array.from(this.wallet.knownAgents.values())) {
+      store.saveKnownAgent(this.profile.id, knownAgent);
+    }
+
+    // Save interaction log
+    for (const [otherId, count] of Array.from(this.interactionLog)) {
+      for (let i = 0; i < count; i++) {
+        store.recordInteraction(this.profile.id, otherId);
+      }
+    }
+  }
+
+  /**
+   * Restore wallet credentials and social graph from an AgentStore.
+   * Does NOT restore the profile (the Agent already has one from construction).
+   */
+  loadState(store: AgentStore): void {
+    // Restore credentials
+    const credentials = store.loadCredentials(this.profile.id);
+    this.wallet.credentials.push(...credentials);
+
+    // Restore social graph
+    const knownAgents = store.loadKnownAgents(this.profile.id);
+    for (const agent of knownAgents) {
+      this.wallet.knownAgents.set(agent.id, agent);
+    }
+
+    // Restore interaction log
+    const counts = store.getInteractionCounts(this.profile.id);
+    for (const [otherId, count] of Array.from(counts)) {
+      this.interactionLog.set(otherId, count);
+    }
   }
 }
 
