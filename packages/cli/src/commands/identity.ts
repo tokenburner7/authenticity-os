@@ -5,7 +5,7 @@ import {
   type Identity,
   type AssuranceLevel,
 } from "@auth/protocol";
-import { loadStore, saveStore, type StoreData } from "../store.js";
+import { loadStore, saveStore } from "../store.js";
 
 const VALID_ASSURANCE: AssuranceLevel[] = [
   "peer",
