@@ -53,6 +53,12 @@ export {
   type MessageBus,
 } from "./communication.js";
 
+// Network transport
+export {
+  NetworkMessageBus,
+  type NetworkMessageBusOptions,
+} from "./network.js";
+
 // LLM providers
 export {
   type LLMProvider,
@@ -73,3 +79,9 @@ export {
 export {
   SqliteAgentStore,
 } from "./sqlite-store.js";
+
+// Registry
+export {
+  RegistryClient,
+  type AgentRegistration,
+} from "./registry.js";
