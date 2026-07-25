@@ -175,7 +175,7 @@ export function checkCompliance(
  * Returns a non-compliant result — the content has no provenance.
  */
 export function checkUnregisteredContent(
-  content: string
+  _content: string
 ): ComplianceResult {
   return {
     compliant: false,
