@@ -2,10 +2,9 @@ import { Command } from "commander";
 import {
   createIdentity,
   toAnchor,
-  type Identity,
   type AssuranceLevel,
 } from "@auth/protocol";
-import { loadStore, saveStore } from "../store.js";
+import { CliDb } from "../db.js";
 
 const VALID_ASSURANCE: AssuranceLevel[] = [
   "peer",
@@ -17,7 +16,7 @@ const VALID_ASSURANCE: AssuranceLevel[] = [
 function parseAssurance(value: string): AssuranceLevel {
   if (!VALID_ASSURANCE.includes(value as AssuranceLevel)) {
     throw new Error(
-      `Invalid assurance level "${value}". Must be one of: ${VALID_ASSURANCE.join(", ")}`
+      `Invalid assurance level "${value}". Must be one of: ${VALID_ASSURANCE.join(", ")}`,
     );
   }
   return value as AssuranceLevel;
@@ -26,63 +25,58 @@ function parseAssurance(value: string): AssuranceLevel {
 /**
  * `auth identity` — manage the local identity anchor.
  */
-export const identityCommand = new Command("identity")
-  .description("Manage the local identity anchor");
+export const identityCommand = new Command("identity").description(
+  "Manage the local identity anchor",
+);
 
 identityCommand
   .command("create")
-  .description("Create a new identity anchor and save it to the store")
+  .description("Create a new identity anchor and save it to the database")
   .requiredOption("--handle <handle>", "Human-readable handle for the identity")
-  .option("--store <path>", "Path to the store JSON file", "./.auth/store.json")
+  .option("--db <path>", "Path to the SQLite database file", "./.auth/auth.db")
   .option(
     "--assurance <level>",
     "Assurance level (peer | social | biometric | government)",
-    "peer"
+    "peer",
   )
-  .action((opts: { handle: string; store: string; assurance: string }) => {
-    const assurance = parseAssurance(opts.assurance);
-    const identity = createIdentity(opts.handle, assurance);
+  .action((opts: { handle: string; db: string; assurance: string }) => {
+    try {
+      const assurance = parseAssurance(opts.assurance);
+      const identity = createIdentity(opts.handle, assurance);
 
-    const store = loadStore(opts.store);
-    store.identity = {
-      id: identity.id,
-      handle: identity.handle,
-      secretKey: identity.secretKey,
-      assurance: identity.assurance,
-      createdAt: identity.createdAt,
-    };
-    saveStore(opts.store, store);
+      const db = new CliDb(opts.db);
+      db.saveIdentity(identity);
+      db.close();
 
-    console.log("✓ Identity created and saved to", opts.store);
-    console.log("  Handle:    ", identity.handle);
-    console.log("  ID:        ", identity.id);
-    console.log("  Assurance: ", identity.assurance);
-    console.log("  Created:   ", identity.createdAt);
-    console.log("");
-    console.log("⚠  Keep your secret key safe. It is stored locally in plaintext.");
+      console.log("✓ Identity created and saved to", opts.db);
+      console.log("  Handle:    ", identity.handle);
+      console.log("  ID:        ", identity.id);
+      console.log("  Assurance: ", identity.assurance);
+      console.log("  Created:   ", identity.createdAt);
+      console.log("");
+      console.log("⚠  Keep your secret key safe. It is stored locally in plaintext.");
+    } catch (e) {
+      console.error(`Error: ${(e as Error).message}`);
+      process.exit(1);
+    }
   });
 
 identityCommand
   .command("show")
-  .description("Display the identity anchor from the store")
-  .option("--store <path>", "Path to the store JSON file", "./.auth/store.json")
-  .action((opts: { store: string }) => {
-    const store = loadStore(opts.store);
-    if (!store.identity) {
-      console.error("No identity found in store:", opts.store);
+  .description("Display the identity anchor from the database")
+  .option("--db <path>", "Path to the SQLite database file", "./.auth/auth.db")
+  .action((opts: { db: string }) => {
+    const db = new CliDb(opts.db);
+    const identity = db.loadIdentity();
+    db.close();
+
+    if (!identity) {
+      console.error("No identity found in database:", opts.db);
       console.error("Create one with: auth identity create --handle <handle>");
       process.exitCode = 1;
       return;
     }
 
-    const stored = store.identity;
-    const identity: Identity = {
-      id: stored.id,
-      handle: stored.handle,
-      secretKey: stored.secretKey,
-      assurance: stored.assurance as AssuranceLevel,
-      createdAt: stored.createdAt,
-    };
     const anchor = toAnchor(identity);
 
     console.log("Identity Anchor");

@@ -8,6 +8,7 @@ import { reputationCommand } from "./commands/reputation.js";
 import { exportCommand } from "./commands/export.js";
 import { importCommand } from "./commands/import.js";
 import { agentCommand } from "./commands/agent.js";
+import { onboardCommand } from "./commands/onboard.js";
 
 const program = new Command();
 
@@ -24,5 +25,6 @@ program.addCommand(reputationCommand);
 program.addCommand(exportCommand);
 program.addCommand(importCommand);
 program.addCommand(agentCommand);
+program.addCommand(onboardCommand);
 
 program.parse();
