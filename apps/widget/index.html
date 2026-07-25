@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AuthBadge — Embeddable Verification Widget</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f0f0f;
+      color: #e0e0e0;
+      padding: 48px 24px;
+      min-height: 100vh;
+    }
+    h1 { font-size: 28px; margin-bottom: 4px; }
+    .subtitle { color: #888; margin-bottom: 40px; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+      gap: 32px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    .card {
+      background: #ffffff;
+      border-radius: 12px;
+      padding: 24px;
+      color: #1f2937;
+    }
+    .card-dark {
+      background: #1f2937;
+      color: #f3f4f6;
+    }
+    .card h2 { font-size: 14px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 16px; }
+    .card-dark h2 { color: #9ca3af; }
+    .content {
+      font-size: 14px;
+      line-height: 1.6;
+      margin-bottom: 16px;
+      color: #374151;
+    }
+    .card-dark .content { color: #d1d5db; }
+    .badge-slot { margin-top: 8px; }
+    .error { color: #ef4444; font-family: monospace; font-size: 12px; margin-top: 12px; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <h1>AuthBadge</h1>
+  <p class="subtitle">Embeddable authenticity verification widget — 100% client-side Ed25519 verification</p>
+  <div class="grid" id="grid"></div>
+  <script>
+    window.__errors = [];
+    window.addEventListener('error', (e) => {
+      window.__errors.push({ msg: e.message, stack: e.error && e.error.stack });
+    });
+    window.addEventListener('unhandledrejection', (e) => {
+      window.__errors.push({ reason: String(e.reason), stack: e.reason && e.reason.stack });
+    });
+  </script>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
