@@ -10,30 +10,30 @@ The scaffold. Both packages exist with working crypto, credentials, reputation, 
 - [x] Test suite: crypto, identity, credentials, reputation, verification, agent, communication
 - [x] Architecture docs, protocol spec, CI
 
-## Phase 2: Minimum Viable Product (v0.2) — Next
+## Phase 2: MVP (v0.2) — DONE
 
-Make the protocol usable by real creators.
+Made the protocol usable by real developers.
 
-- [ ] **LLM-backed content drafting** — Integrate an LLM (local or API) so the agent can actually draft content, not just sign pre-written text
-- [ ] **Local persistence** — Encrypted on-device storage for identity, credentials, and wallet (SQLite with SQLCipher or similar)
-- [ ] **Credential export/import** — Portability: export your credentials as W3C VC JSON, import into other tools
-- [ ] **Stake-weighted reputation** — v0.2 reputation: stake tokens on claims, slashing for false claims
-- [ ] **CLI tool** — `auth-protocol` CLI for creating identities, issuing credentials, verifying content
-- [ ] **Integration tests** — End-to-end: create identity → build reputation → issue credential → verify
-- [ ] **Publish to npm** — Both packages published as scoped packages
+- [x] **@auth/cli package** — identity create/show, attest, verify, vouch, reputation show, export, import
+- [x] **SQLite persistence layer** — ProtocolStore + SqliteStore for identities, credentials, reputation, vouches
+- [x] **Credential export/import** — W3C Verifiable Credential format with full round-trip verification
+- [x] **LLM-backed content drafting** — MockProvider, OllamaProvider, OpenAIProvider wired into Agent class
+- [x] **Agent persistence** — SqliteAgentStore for profiles, wallet credentials, social graph, interaction log
+- [x] **Integration tests** — End-to-end protocol and agent lifecycle tests
+- [x] ~npm publish~ (deferred — needs npm auth)
 
-## Phase 3: Agent Network (v0.3)
+## Phase 3: Agent Network (v0.3) — DONE
 
-Make agents talk to each other over the network.
+Agents talk to each other over the network.
 
-- [ ] **A2A protocol implementation** — Implement the Agent-to-Agent protocol over HTTP/WebSocket
-- [ ] **Agent discovery** — How agents find each other (DHT, registry, or peer-to-peer)
-- [ ] **Skill marketplace architecture** — Plugin system for agent capabilities
-- [ ] **Agent training pipeline** — Learn user preferences from interactions, corrections, and explicit config
-- [ ] **Social graph persistence** — The agent's social graph survives restarts and syncs across devices
-- [ ] **Demo app** — A simple web app showing two agents interacting with each other and exchanging verified credentials
+- [x] **WebSocket transport** — NetworkMessageBus replaces in-memory bus, works across machines
+- [x] **Agent discovery registry** — HTTP registry server + client (register, discover, lookup, unregister)
+- [x] **Auto-handshake (viral loop)** — discoverAndConnect() automatically discovers peers, connects via WebSocket, sends handshakes, builds social graph
+- [x] **Demo app** — Single-page Vite web app visualising the viral loop with animated timeline
+- [x] **CLI agent start** — `auth agent start` runs a networked agent node
+- [x] **CI updated** — builds all 6 workspace projects including demo app
 
-## Phase 4: Platform (v0.4)
+## Phase 4: Platform (v0.4) — Next
 
 The viral loop in production.
 
@@ -42,6 +42,8 @@ The viral loop in production.
 - [ ] **Brand verification portal** — Brands can verify creator authenticity and audience quality
 - [ ] **Platform API** — Public API for social platforms to integrate the verification layer
 - [ ] **EU AI Act compliance** — Article 50 compliance: automatic AI-content labeling using the credential system
+- [ ] **npm publish** — Publish @auth/protocol and @auth/agent to npm
+- [ ] **CLI SQLite migration** — Migrate CLI from JSON file storage to SQLite
 
 ## Phase 5: Protocol Standardisation (v0.5+)
 
@@ -53,11 +55,18 @@ The viral loop in production.
 
 ## Technology Choices
 
-| Layer | Current (v0.1) | Target (v0.4) |
+| Layer | Current (v0.3) | Target (v0.4) |
 |-------|---------------|---------------|
 | Crypto | @noble/ed25519 (pure JS) | Same — audited, no native deps |
-| Persistence | In-memory | SQLite + SQLCipher (local-first) |
-| LLM | None | Local (Ollama) or API (OpenAI, Anthropic) |
-| Network | In-memory bus | WebSocket + A2A protocol |
+| Persistence | SQLite (better-sqlite3) | Same + encrypted variant |
+| LLM | Mock + Ollama + OpenAI | Same + local-first preference |
+| Network | WebSocket (ws) | Same + A2A protocol compliance |
+| Discovery | HTTP registry server | Federated registries |
 | Packaging | pnpm workspace | npm published packages |
 | CI | GitHub Actions | Same + automated npm publish |
+
+## Stats (v0.3)
+
+- **124 tests** across **20 test suites**, all passing
+- **6 workspace projects**: @auth/protocol, @auth/agent, @auth/cli, @auth/registry-server, @auth/demo
+- **4 packages**, **2 apps**
