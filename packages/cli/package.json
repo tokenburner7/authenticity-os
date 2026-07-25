@@ -1,0 +1,30 @@
+{
+  "name": "@auth/cli",
+  "version": "0.0.1",
+  "description": "CLI for the authenticity protocol",
+  "type": "module",
+  "bin": {
+    "auth": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit",
+    "clean": "rm -rf dist node_modules"
+  },
+  "dependencies": {
+    "@auth/protocol": "workspace:*",
+    "@auth/agent": "workspace:*",
+    "commander": "^12.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}
