@@ -1,22 +1,21 @@
 /**
  * @auth/cli — `auth vouch` command
  *
- * Vouch for another identity. Loads your identity from the store,
- * calls vouchFor, saves the credential and the vouch record.
+ * Vouch for another identity. Loads your identity from the database,
+ * calls vouchFor, and saves the vouch credential.
  */
 
 import { Command } from "commander";
 import {
   vouchFor,
-  type Identity,
   type SignedCredential,
 } from "@auth/protocol";
-import { loadStore, saveStore, type StoreData } from "../store.js";
+import { CliDb } from "../db.js";
 
 export interface VouchOptions {
   target: string;
   evidence?: string;
-  store: string;
+  db: string;
 }
 
 /**
@@ -24,33 +23,31 @@ export interface VouchOptions {
  * Throws on error (no process.exit).
  */
 export function vouchForTarget(opts: VouchOptions): SignedCredential {
-  const data: StoreData = loadStore(opts.store);
+  const db = new CliDb(opts.db);
+  try {
+    const identity = db.loadIdentity();
 
-  if (!data.identity) {
-    throw new Error("No identity found. Run `auth identity create` first.");
+    if (!identity) {
+      throw new Error("No identity found. Run `auth identity create` first.");
+    }
+
+    const credential = vouchFor(identity, opts.target, opts.evidence);
+
+    // saveVouch stores it as a credential of type 'vouch'; getVouchesFor
+    // and getAllVouches will surface it for reputation computations.
+    db.saveVouch(credential);
+
+    return credential;
+  } finally {
+    db.close();
   }
-
-  const identity = data.identity as unknown as Identity;
-  const credential = vouchFor(identity, opts.target, opts.evidence);
-
-  // Save credential to store.credentials
-  data.credentials = [...(data.credentials ?? []), credential];
-
-  // Save vouch to store.reputation.vouches
-  data.reputation = {
-    vouches: [...((data.reputation?.vouches as SignedCredential[]) ?? []), credential],
-  };
-
-  saveStore(opts.store, data);
-
-  return credential;
 }
 
 export const vouchCommand = new Command("vouch")
   .description("Vouch for another identity")
   .requiredOption("--target <id>", "Target identity ID (hex)")
   .option("--evidence <evidence>", "Evidence URI or inline proof")
-  .option("--store <path>", "Store file path", "./.auth/store.json")
+  .option("--db <path>", "SQLite database file path", "./.auth/auth.db")
   .action((opts: VouchOptions) => {
     try {
       const credential = vouchForTarget(opts);

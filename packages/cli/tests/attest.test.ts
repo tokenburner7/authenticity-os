@@ -1,26 +1,31 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { execSync } from "node:child_process";
-import { existsSync, readFileSync, rmSync, mkdirSync } from "node:fs";
+import { existsSync, rmSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { randomBytes } from "node:crypto";
+import { SqliteStore } from "@auth/protocol";
 
 const CLI = "src/index.ts";
 const PROJECT = join(new URL("..", import.meta.url).pathname);
 
-let tempStorePath: string;
+let tempDir: string;
 
 afterEach(() => {
-  if (tempStorePath && existsSync(tempStorePath)) {
-    rmSync(tempStorePath, { force: true, recursive: true });
+  if (tempDir && existsSync(tempDir)) {
+    rmSync(tempDir, { force: true, recursive: true });
   }
 });
 
-function makeTempPath(): string {
+function makeTempDir(): string {
   const dir = join(tmpdir(), `auth-cli-test-${randomBytes(8).toString("hex")}`);
   mkdirSync(dir, { recursive: true });
-  tempStorePath = join(dir, "store.json");
-  return tempStorePath;
+  tempDir = dir;
+  return dir;
+}
+
+function dbPath(dir: string): string {
+  return join(dir, "auth.db");
 }
 
 function run(args: string, opts?: { cwd?: string }): { stdout: string; stderr: string; status: number } {
@@ -42,16 +47,17 @@ function run(args: string, opts?: { cwd?: string }): { stdout: string; stderr: s
 }
 
 describe("auth attest", () => {
-  it("creates an identity then attests content and saves credential to store", () => {
-    const storePath = makeTempPath();
+  it("creates an identity then attests content and saves credential to database", () => {
+    const dir = makeTempDir();
+    const db = dbPath(dir);
 
     // First create an identity
-    const createResult = run(`identity create --handle alice --store ${storePath}`);
+    const createResult = run(`identity create --handle alice --db ${db}`);
     expect(createResult.status).toBe(0);
 
     // Now attest content
     const attestResult = run(
-      `attest --content "My original human-written post" --ai-assistance none --evidence screenshot --store ${storePath}`,
+      `attest --content "My original human-written post" --ai-assistance none --evidence screenshot --db ${db}`,
     );
     expect(attestResult.status).toBe(0);
 
@@ -71,27 +77,27 @@ describe("auth attest", () => {
     expect(credential.payload.subject.evidence).toBe("screenshot");
     expect(credential.payload.subject.contentHash).toMatch(/^[0-9a-f]+$/);
 
-    // Verify the credential was saved to the store
-    const data = JSON.parse(readFileSync(storePath, "utf-8")) as {
-      identity?: { id: string };
-      credentials?: Array<{ payload: { type: string } }>;
-    };
+    // Verify the credential was saved to the database
+    const store = new SqliteStore(db);
+    const identity = store.loadAllIdentities()[0];
+    const credentials = store.loadAllCredentials();
+    store.close();
 
-    expect(data.identity).toBeDefined();
-    expect(credential.payload.issuer).toBe(data.identity!.id);
-    expect(credential.signer).toBe(data.identity!.id);
+    expect(identity).toBeDefined();
+    expect(credential.payload.issuer).toBe(identity.id);
+    expect(credential.signer).toBe(identity.id);
 
-    expect(data.credentials).toBeDefined();
-    expect(data.credentials!.length).toBe(1);
-    expect(data.credentials![0].payload.type).toBe("creation");
+    expect(credentials.length).toBe(1);
+    expect(credentials[0].payload.type).toBe("creation");
   });
 
   it("uses default ai-assistance level of none", () => {
-    const storePath = makeTempPath();
-    run(`identity create --handle bob --store ${storePath}`);
+    const dir = makeTempDir();
+    const db = dbPath(dir);
+    run(`identity create --handle bob --db ${db}`);
 
     const attestResult = run(
-      `attest --content "some content" --store ${storePath}`,
+      `attest --content "some content" --db ${db}`,
     );
     expect(attestResult.status).toBe(0);
 
@@ -101,32 +107,35 @@ describe("auth attest", () => {
     expect(credential.payload.subject.aiAssistance).toBe("none");
   });
 
-  it("fails when no identity exists in store", () => {
-    const storePath = makeTempPath();
+  it("fails when no identity exists in database", () => {
+    const dir = makeTempDir();
+    const db = dbPath(dir);
     const result = run(
-      `attest --content "content" --store ${storePath}`,
+      `attest --content "content" --db ${db}`,
     );
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain("No identity");
   });
 
   it("rejects invalid AI assistance level", () => {
-    const storePath = makeTempPath();
-    run(`identity create --handle carol --store ${storePath}`);
+    const dir = makeTempDir();
+    const db = dbPath(dir);
+    run(`identity create --handle carol --db ${db}`);
 
     const result = run(
-      `attest --content "content" --ai-assistance bogus --store ${storePath}`,
+      `attest --content "content" --ai-assistance bogus --db ${db}`,
     );
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain("Invalid AI assistance");
   });
 
   it("attests with ai-assisted level", () => {
-    const storePath = makeTempPath();
-    run(`identity create --handle dave --store ${storePath}`);
+    const dir = makeTempDir();
+    const db = dbPath(dir);
+    run(`identity create --handle dave --db ${db}`);
 
     const result = run(
-      `attest --content "AI helped with this" --ai-assistance ai-assisted --store ${storePath}`,
+      `attest --content "AI helped with this" --ai-assistance ai-assisted --db ${db}`,
     );
     expect(result.status).toBe(0);
     const credential = JSON.parse(result.stdout) as {
@@ -137,22 +146,24 @@ describe("auth attest", () => {
 });
 
 describe("auth vouch", () => {
-  it("vouches for another identity and saves to store", () => {
-    const storePath = makeTempPath();
+  it("vouches for another identity and saves to database", () => {
+    const dir = makeTempDir();
+    const db = dbPath(dir);
 
     // Create vouching identity
-    run(`identity create --handle alice --store ${storePath}`);
+    run(`identity create --handle alice --db ${db}`);
 
-    // Create a target identity in a separate store just to get an id
-    const targetStore = makeTempPath();
-    run(`identity create --handle bob --store ${targetStore}`);
-    const targetData = JSON.parse(readFileSync(targetStore, "utf-8")) as {
-      identity: { id: string };
-    };
+    // Create a target identity in a separate db just to get an id
+    const targetDir = makeTempDir();
+    const targetDb = dbPath(targetDir);
+    run(`identity create --handle bob --db ${targetDb}`);
+    const targetStore = new SqliteStore(targetDb);
+    const targetId = targetStore.loadAllIdentities()[0].id;
+    targetStore.close();
 
     // Vouch
     const result = run(
-      `vouch --target ${targetData.identity.id} --evidence "known 5 years" --store ${storePath}`,
+      `vouch --target ${targetId} --evidence "known 5 years" --db ${db}`,
     );
     expect(result.status).toBe(0);
 
@@ -160,57 +171,61 @@ describe("auth vouch", () => {
       payload: { type: string; subject: { targetId: string; evidence?: string } };
     };
     expect(credential.payload.type).toBe("vouch");
-    expect(credential.payload.subject.targetId).toBe(targetData.identity.id);
+    expect(credential.payload.subject.targetId).toBe(targetId);
     expect(credential.payload.subject.evidence).toBe("known 5 years");
 
-    // Verify saved in store
-    const data = JSON.parse(readFileSync(storePath, "utf-8")) as {
-      credentials?: Array<{ payload: { type: string } }>;
-      reputation?: { vouches?: unknown[] };
-    };
-    expect(data.credentials?.length).toBe(1);
-    expect(data.credentials![0].payload.type).toBe("vouch");
-    expect(data.reputation?.vouches?.length).toBe(1);
+    // Verify saved in database — vouch is stored as a credential of type 'vouch'
+    const store = new SqliteStore(db);
+    const credentials = store.loadAllCredentials();
+    const vouches = store.getVouchesFor(targetId);
+    store.close();
+
+    expect(credentials.length).toBe(1);
+    expect(credentials[0].payload.type).toBe("vouch");
+    expect(vouches.length).toBe(1);
   });
 });
 
 describe("auth reputation show", () => {
   it("shows reputation record for a vouched identity", () => {
-    const storePath = makeTempPath();
+    const dir = makeTempDir();
+    const db = dbPath(dir);
 
     // Create identity A (self) — issuer of the vouch
-    run(`identity create --handle alice --store ${storePath}`);
+    run(`identity create --handle alice --db ${db}`);
 
-    // Create a target identity in a separate store
-    const targetStore = makeTempPath();
-    run(`identity create --handle bob --store ${targetStore}`);
-    const targetData = JSON.parse(readFileSync(targetStore, "utf-8")) as {
-      identity: { id: string };
-    };
+    // Create a target identity in a separate db
+    const targetDir = makeTempDir();
+    const targetDb = dbPath(targetDir);
+    run(`identity create --handle bob --db ${targetDb}`);
+    const targetStore = new SqliteStore(targetDb);
+    const targetId = targetStore.loadAllIdentities()[0].id;
+    targetStore.close();
 
     // alice vouches for bob
-    run(`vouch --target ${targetData.identity.id} --store ${storePath}`);
+    run(`vouch --target ${targetId} --db ${db}`);
 
     // Show reputation for bob (the target)
     const result = run(
-      `reputation show --identity ${targetData.identity.id} --store ${storePath}`,
+      `reputation show --identity ${targetId} --db ${db}`,
     );
     expect(result.status).toBe(0);
     expect(result.stdout).toContain("Reputation Record");
-    expect(result.stdout).toContain(targetData.identity.id);
+    expect(result.stdout).toContain(targetId);
     // One vouch → social-trust score > 0
     expect(result.stdout).toMatch(/social-trust.*score=[1-9]/);
   });
 
   it("reports no reputation record when identity has no vouches", () => {
-    const storePath = makeTempPath();
-    run(`identity create --handle carol --store ${storePath}`);
-    const data = JSON.parse(readFileSync(storePath, "utf-8")) as {
-      identity: { id: string };
-    };
+    const dir = makeTempDir();
+    const db = dbPath(dir);
+    run(`identity create --handle carol --db ${db}`);
+    const store = new SqliteStore(db);
+    const identityId = store.loadAllIdentities()[0].id;
+    store.close();
 
     const result = run(
-      `reputation show --identity ${data.identity.id} --store ${storePath}`,
+      `reputation show --identity ${identityId} --db ${db}`,
     );
     expect(result.status).toBe(0);
     expect(result.stdout).toContain("No reputation record");

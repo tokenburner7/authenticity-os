@@ -77,6 +77,11 @@ export class SqliteStore implements ProtocolStore {
     return row ? rowToIdentity(row) : undefined;
   }
 
+  loadAllIdentities(): Identity[] {
+    const rows = this.db.prepare("SELECT * FROM identities ORDER BY created_at ASC").all() as IdentityRow[];
+    return rows.map(rowToIdentity);
+  }
+
   // ── Credentials ──────────────────────────────────────────
 
   saveCredential(credential: SignedCredential): void {

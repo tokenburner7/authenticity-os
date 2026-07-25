@@ -2,7 +2,7 @@
  * @auth/cli — agent start command
  *
  * Starts a networked agent node that:
- * 1. Loads or creates an identity from the local store
+ * 1. Loads or creates an identity from the local database
  * 2. Starts a WebSocket server
  * 3. Registers with the discovery registry
  * 4. Discovers peers and auto-connects (the viral loop)
@@ -12,10 +12,11 @@
 import { Command } from "commander";
 import { createIdentity, type Identity } from "@auth/protocol";
 import { createAgentForIdentity, NetworkMessageBus, RegistryClient } from "@auth/agent";
-import { loadStore, saveStore } from "../store.js";
+import { CliDb } from "../db.js";
 
-export const agentCommand = new Command("agent")
-  .description("Run a networked agent node");
+export const agentCommand = new Command("agent").description(
+  "Run a networked agent node",
+);
 
 agentCommand
   .command("start")
@@ -23,24 +24,25 @@ agentCommand
   .requiredOption("--name <name>", "Agent display name")
   .option("--port <port>", "WebSocket port to listen on", "3001")
   .option("--registry <url>", "Registry server URL", "http://localhost:4000")
-  .option("--store <path>", "Store file path", "./.auth/store.json")
+  .option("--db <path>", "SQLite database file path", "./.auth/auth.db")
   .option("--bio <text>", "Agent bio", "")
   .action(async (opts) => {
     const port = parseInt(opts.port, 10);
 
     // 1. Load or create identity
-    const store = loadStore(opts.store);
+    const db = new CliDb(opts.db);
     let identity: Identity;
+    const existing = db.loadIdentity();
 
-    if (store.identity) {
-      identity = store.identity as Identity;
+    if (existing) {
+      identity = existing;
       console.log(`Loaded identity: ${identity.handle} (${identity.id.slice(0, 16)}...)`);
     } else {
       identity = createIdentity(opts.name, "peer");
-      store.identity = identity;
-      saveStore(opts.store, store);
+      db.saveIdentity(identity);
       console.log(`Created new identity: ${identity.handle} (${identity.id.slice(0, 16)}...)`);
     }
+    db.close();
 
     // 2. Create agent
     const agent = createAgentForIdentity(
@@ -49,7 +51,7 @@ agentCommand
         bio: opts.bio,
         capabilities: ["draft-content", "socialise"],
       },
-      identity
+      identity,
     );
 
     // 3. Start network bus

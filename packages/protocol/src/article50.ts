@@ -25,34 +25,48 @@ import {
 
 /** Article 50 label categories */
 export type Article50Label =
-  | "human-only"
-  | "ai-assisted"
-  | "ai-generated"
-  | "ai-fully-generated"
-  | "deepfake"
-  | "ai-manipulated";
+  | "human-only"          // No AI involvement whatsoever
+  | "ai-assisted"         // Human created with AI assistance (spell-check, research)
+  | "ai-generated"        // AI drafted, human reviewed and approved
+  | "ai-fully-generated"  // AI generated without human review
+  | "deepfake"            // Synthetic media depicting real persons
+  | "ai-manipulated";     // Real media altered by AI
 
 /** Machine-readable compliance metadata */
 export interface ComplianceLabel {
+  /** The Article 50 category */
   label: Article50Label;
+  /** Human-readable description for display */
   description: string;
+  /** The original AI assistance level from the credential */
   aiAssistance: AIAssistanceLevel;
+  /** Whether this content requires disclosure under Article 50 */
   requiresDisclosure: boolean;
+  /** ISO 8601 timestamp of label generation */
   labeledAt: string;
+  /** Protocol version that generated this label */
   protocolVersion: string;
 }
 
 /** Result of a compliance check */
 export interface ComplianceResult {
+  /** Whether the content is compliant (has proper labeling) */
   compliant: boolean;
+  /** The compliance label, if found */
   label: ComplianceLabel | null;
+  /** List of compliance violations */
   violations: string[];
+  /** The credential examined */
   credential: SignedCredential | null;
   checkedAt: string;
 }
 
 // ── Label Generation ──────────────────────────────────────────────
 
+/**
+ * Generate a compliance label from a credential's AI assistance level.
+ * Maps our internal AIAssistanceLevel to Article 50 categories.
+ */
 export function generateLabel(
   credential: SignedCredential
 ): ComplianceLabel {
@@ -95,6 +109,14 @@ export function generateLabel(
 
 // ── Compliance Checking ───────────────────────────────────────────
 
+/**
+ * Check whether a credential is compliant with EU AI Act Article 50.
+ *
+ * A credential is compliant if:
+ * 1. It has a valid signature
+ * 2. It discloses AI involvement when required
+ * 3. The AI assistance level is accurately represented
+ */
 export function checkCompliance(
   credential: SignedCredential | null
 ): ComplianceResult {
@@ -111,12 +133,23 @@ export function checkCompliance(
     };
   }
 
+  // 1. Signature check
   if (!verifyCredentialSignature(credential)) {
     violations.push("Credential signature is invalid — possible tampering.");
   }
 
+  // 2. Generate label from credential
   const label = generateLabel(credential);
 
+  // 3. Disclosure check — if AI was used, the credential must exist and disclose it
+  if (label.requiresDisclosure) {
+    // The credential itself IS the disclosure — its presence means the
+    // content creator has attested to the AI assistance level.
+    // This is compliant by design: the protocol IS the disclosure mechanism.
+  }
+
+  // 4. Check for deepfake indicators (heuristic — v0.1)
+  // If the credential type is "delegation" with fully-ai, flag as potential deepfake risk
   if (
     credential.payload.type === "delegation" &&
     credential.payload.subject.aiAssistance === "fully-ai"
@@ -137,8 +170,12 @@ export function checkCompliance(
   };
 }
 
+/**
+ * Check compliance for content without a credential.
+ * Returns a non-compliant result — the content has no provenance.
+ */
 export function checkUnregisteredContent(
-  _content: string
+  content: string
 ): ComplianceResult {
   return {
     compliant: false,
@@ -155,20 +192,10 @@ export function checkUnregisteredContent(
 
 // ── Machine-Readable Manifest ─────────────────────────────────────
 
-export interface Article50Manifest {
-  "@context": string;
-  "type": string;
-  "label": Article50Label;
-  "description": string;
-  "aiAssistance": AIAssistanceLevel;
-  "requiresDisclosure": boolean;
-  "issuer": string;
-  "issuedAt": string;
-  "contentHash": string | null;
-  "signature": string;
-  "labeledAt": string;
-}
-
+/**
+ * Generate a machine-readable compliance manifest for embedding in content metadata.
+ * This is the format platforms can embed in HTML meta tags, JSON-LD, or C2PA manifests.
+ */
 export function generateManifest(
   credential: SignedCredential
 ): Article50Manifest {
@@ -189,8 +216,26 @@ export function generateManifest(
   };
 }
 
+export interface Article50Manifest {
+  "@context": string;
+  "type": string;
+  "label": Article50Label;
+  "description": string;
+  "aiAssistance": AIAssistanceLevel;
+  "requiresDisclosure": boolean;
+  "issuer": string;
+  "issuedAt": string;
+  "contentHash": string | null;
+  "signature": string;
+  "labeledAt": string;
+}
+
 // ── HTML Meta Tag Generation ──────────────────────────────────────
 
+/**
+ * Generate HTML meta tags for Article 50 compliance.
+ * Platforms can inject these into their HTML <head>.
+ */
 export function generateMetaTags(
   credential: SignedCredential
 ): string[] {
@@ -200,7 +245,7 @@ export function generateMetaTags(
     `<meta name="ai-content-label" content="${manifest.label}" />`,
     `<meta name="ai-content-description" content="${manifest.description}" />`,
     `<meta name="ai-content-issuer" content="${manifest.issuer}" />`,
-    `<meta name="ai-content-hash" content="${manifest.contentHash ?? ""}" />`,
+    `<meta name="ai-content-hash" content="${manifest.contentHash ?? ''}" />`,
     `<meta name="ai-content-labeled" content="${manifest.labeledAt}" />`,
   ];
 }

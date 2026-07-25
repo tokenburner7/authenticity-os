@@ -1,17 +1,17 @@
 /**
  * @auth/cli — `auth export` command
  *
- * Loads a credential from the local store and exports it as a W3C
+ * Loads a credential from the local database and exports it as a W3C
  * Verifiable Credential (JSON). Defaults to w3c format.
  */
 
 import { Command } from "commander";
 import { toW3CVC, type W3CVerifiableCredential } from "@auth/protocol";
-import { loadStore, type StoreData } from "../store.js";
+import { CliDb } from "../db.js";
 
 export interface ExportOptions {
   index: string;
-  store: string;
+  db: string;
   format: string;
 }
 
@@ -20,38 +20,43 @@ export interface ExportOptions {
  * Throws on error (no process.exit).
  */
 export function exportCredential(opts: ExportOptions): W3CVerifiableCredential {
-  const data: StoreData = loadStore(opts.store);
+  const db = new CliDb(opts.db);
+  try {
+    const credentials = db.loadAllCredentials();
 
-  if (!data.credentials || data.credentials.length === 0) {
-    throw new Error(
-      "No credentials found in store. Run `auth attest` or `auth vouch` first.",
-    );
-  }
+    if (credentials.length === 0) {
+      throw new Error(
+        "No credentials found in database. Run `auth attest` or `auth vouch` first.",
+      );
+    }
 
-  const index = Number(opts.index);
-  if (!Number.isInteger(index) || index < 0) {
-    throw new Error(`Invalid index "${opts.index}". Must be a non-negative integer.`);
-  }
-  if (index >= data.credentials.length) {
-    throw new Error(
-      `Index ${index} out of range. Store has ${data.credentials.length} credential(s) (0..${data.credentials.length - 1}).`,
-    );
-  }
+    const index = Number(opts.index);
+    if (!Number.isInteger(index) || index < 0) {
+      throw new Error(`Invalid index "${opts.index}". Must be a non-negative integer.`);
+    }
+    if (index >= credentials.length) {
+      throw new Error(
+        `Index ${index} out of range. Database has ${credentials.length} credential(s) (0..${credentials.length - 1}).`,
+      );
+    }
 
-  if (opts.format !== "w3c") {
-    throw new Error(
-      `Unsupported format "${opts.format}". Currently only "w3c" is supported.`,
-    );
-  }
+    if (opts.format !== "w3c") {
+      throw new Error(
+        `Unsupported format "${opts.format}". Currently only "w3c" is supported.`,
+      );
+    }
 
-  const credential = data.credentials[index] as Parameters<typeof toW3CVC>[0];
-  return toW3CVC(credential);
+    const credential = credentials[index] as Parameters<typeof toW3CVC>[0];
+    return toW3CVC(credential);
+  } finally {
+    db.close();
+  }
 }
 
 export const exportCommand = new Command("export")
-  .description("Export a credential from the store as a W3C Verifiable Credential")
-  .option("--index <n>", "Index of the credential in the store", "0")
-  .option("--store <path>", "Path to the store JSON file", "./.auth/store.json")
+  .description("Export a credential from the database as a W3C Verifiable Credential")
+  .option("--index <n>", "Index of the credential in the database", "0")
+  .option("--db <path>", "Path to the SQLite database file", "./.auth/auth.db")
   .option("--format <format>", "Export format (w3c)", "w3c")
   .action((opts: ExportOptions) => {
     try {

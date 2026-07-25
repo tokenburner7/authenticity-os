@@ -2,7 +2,7 @@
  * @auth/cli — `auth attest` command
  *
  * Attest content creation with your identity.
- * Loads identity from store, hashes content, calls attestCreation,
+ * Loads identity from the database, hashes content, calls attestCreation,
  * saves the credential, and prints it.
  */
 
@@ -12,9 +12,8 @@ import {
   attestCreation,
   type AIAssistanceLevel,
   type SignedCredential,
-  type Identity,
 } from "@auth/protocol";
-import { loadStore, saveStore, type StoreData } from "../store.js";
+import { CliDb } from "../db.js";
 
 const VALID_AI_LEVELS: AIAssistanceLevel[] = [
   "none",
@@ -27,7 +26,7 @@ export interface AttestOptions {
   content: string;
   aiAssistance: string;
   evidence?: string;
-  store: string;
+  db: string;
 }
 
 /**
@@ -35,31 +34,33 @@ export interface AttestOptions {
  * Throws on error (no process.exit).
  */
 export function attestContent(opts: AttestOptions): SignedCredential {
-  const data: StoreData = loadStore(opts.store);
+  const db = new CliDb(opts.db);
+  try {
+    const identity = db.loadIdentity();
 
-  if (!data.identity) {
-    throw new Error("No identity found. Run `auth identity create` first.");
-  }
+    if (!identity) {
+      throw new Error("No identity found. Run `auth identity create` first.");
+    }
 
-  if (!VALID_AI_LEVELS.includes(opts.aiAssistance as AIAssistanceLevel)) {
-    throw new Error(
-      `Invalid AI assistance level "${opts.aiAssistance}". Must be one of: ${VALID_AI_LEVELS.join(", ")}`,
+    if (!VALID_AI_LEVELS.includes(opts.aiAssistance as AIAssistanceLevel)) {
+      throw new Error(
+        `Invalid AI assistance level "${opts.aiAssistance}". Must be one of: ${VALID_AI_LEVELS.join(", ")}`,
+      );
+    }
+
+    const hash = contentHash(opts.content);
+    const credential = attestCreation(
+      identity,
+      hash,
+      opts.aiAssistance as AIAssistanceLevel,
+      opts.evidence,
     );
+
+    db.saveCredential(credential);
+    return credential;
+  } finally {
+    db.close();
   }
-
-  const identity = data.identity as unknown as Identity;
-  const hash = contentHash(opts.content);
-  const credential = attestCreation(
-    identity,
-    hash,
-    opts.aiAssistance as AIAssistanceLevel,
-    opts.evidence,
-  );
-
-  data.credentials = [...(data.credentials ?? []), credential];
-  saveStore(opts.store, data);
-
-  return credential;
 }
 
 export const attestCommand = new Command("attest")
@@ -71,7 +72,7 @@ export const attestCommand = new Command("attest")
     "none",
   )
   .option("--evidence <evidence>", "Evidence URI or inline proof")
-  .option("--store <path>", "Store file path", "./.auth/store.json")
+  .option("--db <path>", "SQLite database file path", "./.auth/auth.db")
   .action((opts: AttestOptions) => {
     try {
       const credential = attestContent(opts);

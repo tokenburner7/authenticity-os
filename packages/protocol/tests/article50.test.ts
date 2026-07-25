@@ -75,6 +75,7 @@ describe("Article 50 compliance", () => {
     it("returns non-compliant for tampered credential", () => {
       const alice = createIdentity("alice", "peer");
       const cred = attestCreation(alice, contentHash("my post"), "none");
+      // Tamper
       cred.payload.subject.aiAssistance = "fully-ai";
       const result = checkCompliance(cred);
 

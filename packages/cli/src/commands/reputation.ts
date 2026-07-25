@@ -2,7 +2,7 @@
  * @auth/cli — `auth reputation` command group
  *
  * `auth reputation show` — display reputation scores for an identity,
- * computed from the vouches saved in the local store.
+ * computed from the vouches saved in the local database.
  */
 
 import { Command } from "commander";
@@ -11,13 +11,12 @@ import {
   recordVouch,
   getReputation,
   type ReputationRecord,
-  type SignedCredential,
 } from "@auth/protocol";
-import { loadStore, type StoreData } from "../store.js";
+import { CliDb } from "../db.js";
 
 export interface ReputationShowOptions {
   identity: string;
-  store: string;
+  db: string;
 }
 
 /**
@@ -25,26 +24,30 @@ export interface ReputationShowOptions {
  * Throws on error (no process.exit).
  */
 export function showReputation(opts: ReputationShowOptions): ReputationRecord | undefined {
-  const data: StoreData = loadStore(opts.store);
-  const vouches = (data.reputation?.vouches as SignedCredential[]) ?? [];
+  const db = new CliDb(opts.db);
+  try {
+    const vouches = db.getAllVouches();
 
-  const repStore = createReputationStore();
-  for (const v of vouches) {
-    recordVouch(repStore, v);
+    const repStore = createReputationStore();
+    for (const v of vouches) {
+      recordVouch(repStore, v);
+    }
+
+    return getReputation(repStore, opts.identity);
+  } finally {
+    db.close();
   }
-
-  return getReputation(repStore, opts.identity);
 }
 
 export const reputationCommand = new Command("reputation").description(
-  "View reputation scores computed from the local store",
+  "View reputation scores computed from the local database",
 );
 
 reputationCommand
   .command("show")
   .description("Show reputation for an identity")
   .requiredOption("--identity <id>", "Identity ID (hex)")
-  .option("--store <path>", "Store file path", "./.auth/store.json")
+  .option("--db <path>", "SQLite database file path", "./.auth/auth.db")
   .action((opts: ReputationShowOptions) => {
     try {
       const record = showReputation(opts);

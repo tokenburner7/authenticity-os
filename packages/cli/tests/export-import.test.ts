@@ -2,7 +2,6 @@ import { describe, it, expect, afterEach } from "vitest";
 import { execSync } from "node:child_process";
 import {
   existsSync,
-  readFileSync,
   rmSync,
   mkdirSync,
   writeFileSync,
@@ -10,6 +9,7 @@ import {
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { randomBytes } from "node:crypto";
+import { SqliteStore, issueCredential, contentHash } from "@auth/protocol";
 
 const CLI = "src/index.ts";
 const PROJECT = join(new URL("..", import.meta.url).pathname);
@@ -54,13 +54,13 @@ function run(
 describe("auth export", () => {
   it("exports a credential as W3C VC JSON", () => {
     const dir = makeTempDir();
-    const storePath = join(dir, "store.json");
+    const db = join(dir, "auth.db");
 
     // set up: create identity + attest content
-    run(`identity create --handle alice --store ${storePath}`);
-    run(`attest --content "my original post" --store ${storePath}`);
+    run(`identity create --handle alice --db ${db}`);
+    run(`attest --content "my original post" --db ${db}`);
 
-    const result = run(`export --store ${storePath}`);
+    const result = run(`export --db ${db}`);
     expect(result.status).toBe(0);
 
     const vc = JSON.parse(result.stdout) as {
@@ -92,155 +92,144 @@ describe("auth export", () => {
 
   it("uses --index to select a specific credential", () => {
     const dir = makeTempDir();
-    const storePath = join(dir, "store.json");
+    const db = join(dir, "auth.db");
 
-    run(`identity create --handle alice --store ${storePath}`);
-    run(`attest --content "first" --store ${storePath}`);
-    run(`attest --content "second" --store ${storePath}`);
+    run(`identity create --handle alice --db ${db}`);
+    run(`attest --content "first" --db ${db}`);
+    run(`attest --content "second" --db ${db}`);
 
-    const store = JSON.parse(readFileSync(storePath, "utf-8")) as {
-      credentials?: Array<{ payload: { subject: { contentHash: string } } }>;
-    };
-    expect(store.credentials?.length).toBe(2);
+    const store = new SqliteStore(db);
+    const credentials = store.loadAllCredentials();
+    store.close();
+    expect(credentials.length).toBe(2);
 
     // export index 1 — should be the second credential
-    const result = run(`export --index 1 --store ${storePath}`);
+    const result = run(`export --index 1 --db ${db}`);
     expect(result.status).toBe(0);
 
     const vc = JSON.parse(result.stdout) as {
       credentialSubject: { contentHash: string };
     };
     expect(vc.credentialSubject.contentHash).toBe(
-      store.credentials![1].payload.subject.contentHash,
+      credentials[1].payload.subject.contentHash,
     );
   });
 
-  it("fails when no credentials exist in store", () => {
+  it("fails when no credentials exist in database", () => {
     const dir = makeTempDir();
-    const storePath = join(dir, "store.json");
-    run(`identity create --handle alice --store ${storePath}`);
+    const db = join(dir, "auth.db");
+    run(`identity create --handle alice --db ${db}`);
 
-    const result = run(`export --store ${storePath}`);
+    const result = run(`export --db ${db}`);
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain("No credentials");
   });
 
   it("fails when index is out of range", () => {
     const dir = makeTempDir();
-    const storePath = join(dir, "store.json");
-    run(`identity create --handle alice --store ${storePath}`);
-    run(`attest --content "only one" --store ${storePath}`);
+    const db = join(dir, "auth.db");
+    run(`identity create --handle alice --db ${db}`);
+    run(`attest --content "only one" --db ${db}`);
 
-    const result = run(`export --index 5 --store ${storePath}`);
+    const result = run(`export --index 5 --db ${db}`);
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain("out of range");
   });
 
   it("rejects unsupported format", () => {
     const dir = makeTempDir();
-    const storePath = join(dir, "store.json");
-    run(`identity create --handle alice --store ${storePath}`);
-    run(`attest --content "content" --store ${storePath}`);
+    const db = join(dir, "auth.db");
+    run(`identity create --handle alice --db ${db}`);
+    run(`attest --content "content" --db ${db}`);
 
-    const result = run(`export --format jwt --store ${storePath}`);
+    const result = run(`export --format jwt --db ${db}`);
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain("Unsupported format");
   });
 });
 
 describe("auth import", () => {
-  it("imports a W3C VC file and saves it to the store", () => {
+  it("imports a W3C VC file and saves it to the database", () => {
     const dir = makeTempDir();
-    const storePath = join(dir, "store.json");
+    const db = join(dir, "auth.db");
     const vcFile = join(dir, "vc.json");
 
     // Set up an export to produce a valid W3C VC file
-    const sourceStore = join(dir, "source.json");
-    run(`identity create --handle alice --store ${sourceStore}`);
-    run(`attest --content "exported content" --store ${sourceStore}`);
-    const exportResult = run(`export --store ${sourceStore}`);
+    const sourceDb = join(dir, "source.db");
+    run(`identity create --handle alice --db ${sourceDb}`);
+    run(`attest --content "exported content" --db ${sourceDb}`);
+    const exportResult = run(`export --db ${sourceDb}`);
     writeFileSync(vcFile, exportResult.stdout);
 
-    // Import into a fresh store
-    const result = run(`import --file ${vcFile} --store ${storePath}`);
+    // Import into a fresh database
+    const result = run(`import --file ${vcFile} --db ${db}`);
     expect(result.status).toBe(0);
     expect(result.stdout).toContain("Credential imported");
 
-    const data = JSON.parse(readFileSync(storePath, "utf-8")) as {
-      credentials?: Array<{
-        payload: {
-          type: string;
-          issuer: string;
-          subject: { contentHash: string; aiAssistance: string };
-        };
-        signature: string;
-        signer: string;
-      }>;
-    };
+    const store = new SqliteStore(db);
+    const credentials = store.loadAllCredentials();
+    store.close();
 
-    expect(data.credentials).toBeDefined();
-    expect(data.credentials!.length).toBe(1);
-    expect(data.credentials![0].payload.type).toBe("creation");
+    expect(credentials.length).toBe(1);
+    expect(credentials[0].payload.type).toBe("creation");
     // signature + signer carried through
-    expect(data.credentials![0].signature).toMatch(/^[0-9a-f]+$/);
+    expect(credentials[0].signature).toMatch(/^[0-9a-f]+$/);
   });
 
   it("appends to existing credentials without overwriting", () => {
     const dir = makeTempDir();
-    const storePath = join(dir, "store.json");
+    const db = join(dir, "auth.db");
     const vcFile = join(dir, "vc.json");
 
     // source credential
-    const sourceStore = join(dir, "source.json");
-    run(`identity create --handle alice --store ${sourceStore}`);
-    run(`attest --content "first" --store ${sourceStore}`);
-    const exportResult = run(`export --store ${sourceStore}`);
+    const sourceDb = join(dir, "source.db");
+    run(`identity create --handle alice --db ${sourceDb}`);
+    run(`attest --content "first" --db ${sourceDb}`);
+    const exportResult = run(`export --db ${sourceDb}`);
     writeFileSync(vcFile, exportResult.stdout);
 
-    // target store already has one credential
-    run(`identity create --handle bob --store ${storePath}`);
-    run(`attest --content "existing" --store ${storePath}`);
+    // target database already has one credential
+    run(`identity create --handle bob --db ${db}`);
+    run(`attest --content "existing" --db ${db}`);
 
-    const before = JSON.parse(readFileSync(storePath, "utf-8")) as {
-      credentials?: unknown[];
-    };
-    expect(before.credentials?.length).toBe(1);
+    const storeBefore = new SqliteStore(db);
+    expect(storeBefore.loadAllCredentials().length).toBe(1);
+    storeBefore.close();
 
-    const result = run(`import --file ${vcFile} --store ${storePath}`);
+    const result = run(`import --file ${vcFile} --db ${db}`);
     expect(result.status).toBe(0);
 
-    const after = JSON.parse(readFileSync(storePath, "utf-8")) as {
-      credentials?: unknown[];
-    };
-    expect(after.credentials?.length).toBe(2);
+    const storeAfter = new SqliteStore(db);
+    expect(storeAfter.loadAllCredentials().length).toBe(2);
+    storeAfter.close();
   });
 
   it("fails when file does not exist", () => {
     const dir = makeTempDir();
-    const storePath = join(dir, "store.json");
+    const db = join(dir, "auth.db");
     const missing = join(dir, "nope.json");
 
-    const result = run(`import --file ${missing} --store ${storePath}`);
+    const result = run(`import --file ${missing} --db ${db}`);
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain("Error");
   });
 
   it("fails when file is not a valid W3C VC", () => {
     const dir = makeTempDir();
-    const storePath = join(dir, "store.json");
+    const db = join(dir, "auth.db");
     const badFile = join(dir, "bad.json");
     writeFileSync(badFile, JSON.stringify({ hello: "world" }));
 
-    const result = run(`import --file ${badFile} --store ${storePath}`);
+    const result = run(`import --file ${badFile} --db ${db}`);
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain("does not look like a W3C");
   });
 
   it("fails when --file is not provided", () => {
     const dir = makeTempDir();
-    const storePath = join(dir, "store.json");
+    const db = join(dir, "auth.db");
 
-    const result = run(`import --store ${storePath}`);
+    const result = run(`import --db ${db}`);
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain("--file");
   });
@@ -249,62 +238,53 @@ describe("auth import", () => {
 describe("auth export → import round-trip via CLI", () => {
   it("exported VC imports back and remains signature-verifiable", () => {
     const dir = makeTempDir();
-    const sourceStore = join(dir, "source.json");
+    const sourceDb = join(dir, "source.db");
     const vcFile = join(dir, "vc.json");
-    const destStore = join(dir, "dest.json");
+    const destDb = join(dir, "dest.db");
 
     // 1. Create identity + credential
-    run(`identity create --handle alice --store ${sourceStore}`);
+    run(`identity create --handle alice --db ${sourceDb}`);
     run(
-      `attest --content "round-trip content" --evidence screenshot --store ${sourceStore}`,
+      `attest --content "round-trip content" --evidence screenshot --db ${sourceDb}`,
     );
 
     // 2. Export to W3C VC file
-    const exportResult = run(`export --store ${sourceStore}`);
+    const exportResult = run(`export --db ${sourceDb}`);
     expect(exportResult.status).toBe(0);
     writeFileSync(vcFile, exportResult.stdout);
 
-    // 3. Import into a new store
-    const importResult = run(`import --file ${vcFile} --store ${destStore}`);
+    // 3. Import into a new database
+    const importResult = run(`import --file ${vcFile} --db ${destDb}`);
     expect(importResult.status).toBe(0);
 
     // 4. Verify the imported credential structurally matches the original
-    const source = JSON.parse(readFileSync(sourceStore, "utf-8")) as {
-      credentials?: Array<{ signature: string }>;
-    };
-    const dest = JSON.parse(readFileSync(destStore, "utf-8")) as {
-      credentials?: Array<{ signature: string; signer: string }>;
-    };
+    const sourceStore = new SqliteStore(sourceDb);
+    const sourceCreds = sourceStore.loadAllCredentials();
+    sourceStore.close();
 
-    expect(dest.credentials!.length).toBe(1);
-    expect(dest.credentials![0].signature).toBe(source.credentials![0].signature);
-    expect(dest.credentials![0].signer).toBeDefined();
+    const destStore = new SqliteStore(destDb);
+    const destCreds = destStore.loadAllCredentials();
+    destStore.close();
+
+    expect(destCreds.length).toBe(1);
+    expect(destCreds[0].signature).toBe(sourceCreds[0].signature);
+    expect(destCreds[0].signer).toBeDefined();
   });
 
-  it("exported VC with expiresAt survives the round-trip", async () => {
+  it("exported VC with expiresAt survives the round-trip", () => {
     // The CLI attest path doesn't set expiresAt directly, so we exercise it
-    // via the protocol library by crafting a credential in the store.
+    // via the protocol library by crafting a credential directly in the DB.
     const dir = makeTempDir();
-    const sourceStore = join(dir, "source.json");
+    const sourceDb = join(dir, "source.db");
     const vcFile = join(dir, "vc.json");
-    const destStore = join(dir, "dest.json");
+    const destDb = join(dir, "dest.db");
 
     // Create identity normally, then inject a credential with expiresAt
-    run(`identity create --handle alice --store ${sourceStore}`);
-    const data = JSON.parse(readFileSync(sourceStore, "utf-8")) as {
-      identity: { id: string; secretKey: string };
-      credentials: unknown[];
-    };
+    run(`identity create --handle alice --db ${sourceDb}`);
+    const store = new SqliteStore(sourceDb);
+    const identity = store.loadAllIdentities()[0];
 
-    // Build a credential using the protocol package directly (ESM import)
-    const { issueCredential, contentHash } = await import("@auth/protocol");
-    const identity = {
-      id: data.identity.id,
-      secretKey: data.identity.secretKey,
-      handle: "alice",
-      assurance: "peer",
-      createdAt: new Date().toISOString(),
-    } as const;
+    // Build a credential using the protocol library directly
     const credential = issueCredential(
       "creation",
       identity,
@@ -314,11 +294,11 @@ describe("auth export → import round-trip via CLI", () => {
       },
       { expiresIn: 3600 },
     );
-    data.credentials = [credential];
-    writeFileSync(sourceStore, JSON.stringify(data, null, 2));
+    store.saveCredential(credential);
+    store.close();
 
     // Export → import
-    const exportResult = run(`export --store ${sourceStore}`);
+    const exportResult = run(`export --db ${sourceDb}`);
     expect(exportResult.status).toBe(0);
     const vc = JSON.parse(exportResult.stdout) as {
       expirationDate?: string;
@@ -326,14 +306,12 @@ describe("auth export → import round-trip via CLI", () => {
     expect(vc.expirationDate).toBeDefined();
     writeFileSync(vcFile, exportResult.stdout);
 
-    const importResult = run(`import --file ${vcFile} --store ${destStore}`);
+    const importResult = run(`import --file ${vcFile} --db ${destDb}`);
     expect(importResult.status).toBe(0);
 
-    const dest = JSON.parse(readFileSync(destStore, "utf-8")) as {
-      credentials?: Array<{
-        payload: { expiresAt?: string };
-      }>;
-    };
-    expect(dest.credentials![0].payload.expiresAt).toBe(vc.expirationDate);
+    const destStore = new SqliteStore(destDb);
+    const destCreds = destStore.loadAllCredentials();
+    destStore.close();
+    expect(destCreds[0].payload.expiresAt).toBe(vc.expirationDate);
   });
 });

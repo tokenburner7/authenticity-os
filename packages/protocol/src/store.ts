@@ -14,6 +14,7 @@ export interface ProtocolStore {
   saveIdentity(identity: Identity): void;
   loadIdentity(id: string): Identity | undefined;
   loadIdentityByHandle(handle: string): Identity | undefined;
+  loadAllIdentities(): Identity[];
 
   // Credentials
   saveCredential(credential: SignedCredential): void;

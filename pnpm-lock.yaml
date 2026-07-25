@@ -10,7 +10,20 @@ importers:
     devDependencies:
       vitest:
         specifier: ^3.2.7
-        version: 3.2.7(@types/node@22.20.1)(tsx@4.23.1)
+        version: 3.2.7(@types/node@22.20.1)(happy-dom@15.11.7)(tsx@4.23.1)
+
+  apps/brand-portal:
+    dependencies:
+      '@auth/protocol':
+        specifier: workspace:*
+        version: link:../../packages/protocol
+    devDependencies:
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+      vite:
+        specifier: ^6.0.0
+        version: 6.4.3(@types/node@22.20.1)(tsx@4.23.1)
 
   apps/demo:
     dependencies:
@@ -40,6 +53,50 @@ importers:
         specifier: ^5.7.0
         version: 5.9.3
 
+  apps/verification-api:
+    dependencies:
+      '@auth/protocol':
+        specifier: workspace:*
+        version: link:../../packages/protocol
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.20.1
+      tsx:
+        specifier: ^4.0.0
+        version: 4.23.1
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+      vitest:
+        specifier: ^3.0.0
+        version: 3.2.7(@types/node@22.20.1)(happy-dom@15.11.7)(tsx@4.23.1)
+
+  apps/widget:
+    dependencies:
+      '@auth/protocol':
+        specifier: workspace:*
+        version: link:../../packages/protocol
+    devDependencies:
+      '@noble/ed25519':
+        specifier: ^2.0.0
+        version: 2.3.0
+      '@noble/hashes':
+        specifier: ^1.6.0
+        version: 1.8.0
+      happy-dom:
+        specifier: ^15.0.0
+        version: 15.11.7
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+      vite:
+        specifier: ^6.0.0
+        version: 6.4.3(@types/node@22.20.1)(tsx@4.23.1)
+      vitest:
+        specifier: ^3.0.0
+        version: 3.2.7(@types/node@22.20.1)(happy-dom@15.11.7)(tsx@4.23.1)
+
   packages/agent:
     dependencies:
       '@auth/protocol':
@@ -66,7 +123,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.0.0
-        version: 3.2.7(@types/node@22.20.1)(tsx@4.23.1)
+        version: 3.2.7(@types/node@22.20.1)(happy-dom@15.11.7)(tsx@4.23.1)
 
   packages/cli:
     dependencies:
@@ -91,7 +148,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.0.0
-        version: 3.2.7(@types/node@22.20.1)(tsx@4.23.1)
+        version: 3.2.7(@types/node@22.20.1)(happy-dom@15.11.7)(tsx@4.23.1)
 
   packages/protocol:
     dependencies:
@@ -116,7 +173,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.0.0
-        version: 3.2.7(@types/node@22.20.1)(tsx@4.23.1)
+        version: 3.2.7(@types/node@22.20.1)(happy-dom@15.11.7)(tsx@4.23.1)
 
 packages:
 
@@ -664,6 +721,10 @@ packages:
     resolution: {integrity: sha512-h5k/5U50IJJFpzfL6nO9jaaumfjO/f2NjK/oYB2Djzm4p9L+3T9qWpZqZ2hAbLPuuYq9wrU08WQyBTL5GbPk5Q==}
     engines: {node: '>=6'}
 
+  entities@4.5.0:
+    resolution: {integrity: sha512-V0hjH4dGPh9Ao5p0MoRY6BVqtwCjhz6vI5LT8AJ55H+4g9/4vbHx1I54fS0XuclLhDHArPQCiMjDxjaL8fPxhw==}
+    engines: {node: '>=0.12'}
+
   es-module-lexer@1.7.0:
     resolution: {integrity: sha512-jEQoCwk8hyb2AZziIOLhDqpm5+2ww5uIE6lkO/6jcOCusfk6LhMHpXXfBLXTZ7Ydyt0j4VoUQv6uGNYbdW+kBA==}
 
@@ -697,6 +758,10 @@ packages:
     resolution: {integrity: sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==}
     engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
     os: [darwin]
+
+  happy-dom@15.11.7:
+    resolution: {integrity: sha512-KyrFvnl+J9US63TEzwoiJOQzZBJY7KgBushJA8X61DMbNsH+2ONkDuLDnCnwUiPTF42tLoEmrPyoqbenVA5zrg==}
+    engines: {node: '>=18.0.0'}
 
   js-tokens@9.0.1:
     resolution: {integrity: sha512-mxa9E9ITFOt0ban3j6L5MpjwegGz6lBQmM1IJkWeBZGcMxto50+eWdjC/52xDbS2vy0k7vIMK0Fe2wfL9OQSpQ==}
@@ -905,6 +970,14 @@ packages:
         optional: true
       jsdom:
         optional: true
+
+  webidl-conversions@7.0.0:
+    resolution: {integrity: sha512-VwddBukDzu71offAQR975unBIGqfKZpM+8ZX6ySk8nYhVoo5CYaZyzt3YBvYtRtO+aoGlqxPg/B87NGVZ/fu6g==}
+    engines: {node: '>=12'}
+
+  whatwg-mimetype@3.0.0:
+    resolution: {integrity: sha512-nt+N2dzIutVRxARx1nghPKGv1xHikU7HKdfafKkLNLindmPU/ch3U31NOCGGA/dmPcmb1VlofO0vnKAcsm0o/Q==}
+    engines: {node: '>=12'}
 
   why-is-node-running@2.3.0:
     resolution: {integrity: sha512-hUrmaWBdVDcxvYqnyh09zunKzROWjbZTiNy8dBEjkS7ehEDQibXJ7XvlmtbwuTclUiIyN+CyXQD4Vmko8fNm8w==}
@@ -1251,6 +1324,8 @@ snapshots:
 
   deep-eql@5.0.2: {}
 
+  entities@4.5.0: {}
+
   es-module-lexer@1.7.0: {}
 
   esbuild@0.25.12:
@@ -1323,6 +1398,12 @@ snapshots:
 
   fsevents@2.3.3:
     optional: true
+
+  happy-dom@15.11.7:
+    dependencies:
+      entities: 4.5.0
+      webidl-conversions: 7.0.0
+      whatwg-mimetype: 3.0.0
 
   js-tokens@9.0.1: {}
 
@@ -1426,7 +1507,7 @@ snapshots:
       debug: 4.4.3
       es-module-lexer: 1.7.0
       pathe: 2.0.3
-      vite: 7.3.6(@types/node@22.20.1)(tsx@4.23.1)
+      vite: 6.4.3(@types/node@22.20.1)(tsx@4.23.1)
     transitivePeerDependencies:
       - '@types/node'
       - jiti
@@ -1467,7 +1548,7 @@ snapshots:
       fsevents: 2.3.3
       tsx: 4.23.1
 
-  vitest@3.2.7(@types/node@22.20.1)(tsx@4.23.1):
+  vitest@3.2.7(@types/node@22.20.1)(happy-dom@15.11.7)(tsx@4.23.1):
     dependencies:
       '@types/chai': 5.2.3
       '@vitest/expect': 3.2.7
@@ -1494,6 +1575,7 @@ snapshots:
       why-is-node-running: 2.3.0
     optionalDependencies:
       '@types/node': 22.20.1
+      happy-dom: 15.11.7
     transitivePeerDependencies:
       - jiti
       - less
@@ -1507,6 +1589,10 @@ snapshots:
       - terser
       - tsx
       - yaml
+
+  webidl-conversions@7.0.0: {}
+
+  whatwg-mimetype@3.0.0: {}
 
   why-is-node-running@2.3.0:
     dependencies:

@@ -2,18 +2,17 @@
  * @auth/cli — `auth import` command
  *
  * Reads a W3C Verifiable Credential JSON from a file, converts it back to
- * the internal SignedCredential form, and appends it to the store's
- * `credentials` array.
+ * the internal SignedCredential form, and saves it to the database.
  */
 
 import { Command } from "commander";
 import { fromW3CVC, type SignedCredential, type W3CVerifiableCredential } from "@auth/protocol";
-import { loadStore, saveStore, type StoreData } from "../store.js";
+import { CliDb } from "../db.js";
 import { readFileSync } from "node:fs";
 
 export interface ImportOptions {
   file: string;
-  store: string;
+  db: string;
 }
 
 /**
@@ -42,21 +41,24 @@ export function importCredential(opts: ImportOptions): SignedCredential {
 
   const credential = fromW3CVC(vc);
 
-  const data: StoreData = loadStore(opts.store);
-  data.credentials = [...(data.credentials ?? []), credential];
-  saveStore(opts.store, data);
+  const db = new CliDb(opts.db);
+  try {
+    db.saveCredential(credential);
+  } finally {
+    db.close();
+  }
 
   return credential;
 }
 
 export const importCommand = new Command("import")
-  .description("Import a W3C Verifiable Credential from a file into the store")
+  .description("Import a W3C Verifiable Credential from a file into the database")
   .requiredOption("--file <path>", "Path to the W3C VC JSON file")
-  .option("--store <path>", "Path to the store JSON file", "./.auth/store.json")
+  .option("--db <path>", "Path to the SQLite database file", "./.auth/auth.db")
   .action((opts: ImportOptions) => {
     try {
       const credential = importCredential(opts);
-      console.log("✓ Credential imported and saved to", opts.store);
+      console.log("✓ Credential imported and saved to", opts.db);
       console.log("  Type:    ", credential.payload.type);
       console.log("  Issuer:  ", credential.payload.issuer);
       console.log("  Issued:  ", credential.payload.issuedAt);
