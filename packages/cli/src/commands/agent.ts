@@ -12,7 +12,7 @@
 import { Command } from "commander";
 import { createIdentity, type Identity } from "@auth/protocol";
 import { createAgentForIdentity, NetworkMessageBus, RegistryClient } from "@auth/agent";
-import { loadStore, saveStore, type StoreData } from "../store.js";
+import { loadStore, saveStore } from "../store.js";
 
 export const agentCommand = new Command("agent")
   .description("Run a networked agent node");
