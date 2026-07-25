@@ -88,3 +88,16 @@ export {
 export {
   SqliteStore,
 } from "./sqlite-store.js";
+
+// EU AI Act Article 50 compliance
+export {
+  generateLabel,
+  checkCompliance,
+  checkUnregisteredContent,
+  generateManifest,
+  generateMetaTags,
+  type Article50Label,
+  type ComplianceLabel,
+  type ComplianceResult,
+  type Article50Manifest,
+} from "./article50.js";
