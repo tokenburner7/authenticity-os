@@ -7,10 +7,7 @@ import {
   recordVouch,
   createReputationStore,
   getReputation,
-  saveReputation,
-  loadReputation,
   type Identity,
-  type SignedCredential,
 } from "../src/index.js";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
