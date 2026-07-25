@@ -53,5 +53,14 @@ export {
   type MessageBus,
 } from "./communication.js";
 
+// LLM providers
+export {
+  type LLMProvider,
+  type LLMOptions,
+  MockProvider,
+  OllamaProvider,
+  OpenAIProvider,
+} from "./llm.js";
+
 // Utils
 export { generateId } from "./utils.js";

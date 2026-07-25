@@ -20,6 +20,7 @@ import {
 } from "@auth/protocol";
 import type { AgentProfile, AgentCapability, DelegatedContent } from "./types.js";
 import type { AgentWallet } from "./wallet.js";
+import type { LLMProvider } from "./llm.js";
 
 export interface AgentConfig {
   name: string;
@@ -32,6 +33,7 @@ export class Agent {
   readonly identity: Identity;
   private wallet: AgentWallet;
   private interactionLog: Map<string, number> = new Map();
+  private llmProvider: LLMProvider | null = null;
 
   constructor(config: AgentConfig, ownerIdentity: Identity) {
     this.identity = ownerIdentity;
@@ -84,6 +86,34 @@ export class Agent {
       aiAssistance: aiAssistance as "partial" | "ai-assisted" | "fully-ai",
       createdAt: new Date().toISOString(),
     };
+  }
+
+  /**
+   * Install an LLM provider to enable AI-backed content generation.
+   * Without a provider, generateContent() will throw.
+   */
+  setLLMProvider(provider: LLMProvider): void {
+    this.llmProvider = provider;
+  }
+
+  /**
+   * Generate content via the configured LLM provider, then draft and sign it.
+   * Throws if no provider has been set via setLLMProvider().
+   *
+   * Default aiAssistance is "fully-ai" since the content is model-generated.
+   */
+  async generateContent(
+    prompt: string,
+    aiAssistance: AIAssistanceLevel = "fully-ai",
+    evidence?: string
+  ): Promise<DelegatedContent> {
+    if (!this.llmProvider) {
+      throw new Error(
+        "No LLM provider set. Call setLLMProvider() before generateContent()."
+      );
+    }
+    const content = await this.llmProvider.generate(prompt);
+    return this.draftContent(content, aiAssistance, evidence);
   }
 
   /**
