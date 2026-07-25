@@ -20,9 +20,11 @@
   },
   "dependencies": {
     "@noble/ed25519": "^2.0.0",
-    "@noble/hashes": "^1.6.0"
+    "@noble/hashes": "^1.6.0",
+    "better-sqlite3": "^13.0.1"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.0.0",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"

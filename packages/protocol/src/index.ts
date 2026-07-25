@@ -72,3 +72,12 @@ export {
   verifyCredential,
   type VerifyOptions,
 } from "./verification.js";
+
+// Persistence
+export {
+  type ProtocolStore,
+} from "./store.js";
+
+export {
+  SqliteStore,
+} from "./sqlite-store.js";
