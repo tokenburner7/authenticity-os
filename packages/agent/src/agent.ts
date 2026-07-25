@@ -22,6 +22,8 @@ import type { AgentProfile, AgentCapability, DelegatedContent } from "./types.js
 import type { AgentWallet } from "./wallet.js";
 import type { AgentStore } from "./store.js";
 import type { LLMProvider } from "./llm.js";
+import type { RegistryClient } from "./registry.js";
+import type { NetworkMessageBus } from "./network.js";
 
 export interface AgentConfig {
   name: string;
@@ -155,6 +157,58 @@ export class Agent {
 
   getKnownAgents(): AgentProfile[] {
     return Array.from(this.wallet.knownAgents.values());
+  }
+
+  // ── Viral loop: discovery and auto-handshake ─────────────
+
+  /**
+   * Discover peers via a registry client and auto-connect over a network bus.
+   * For each discovered peer that is NOT already in the social graph,
+   * connect via WebSocket, send a handshake, and record the interaction.
+   *
+   * This IS the viral loop: every discovery triggers a connection,
+   * which enriches the social graph, which makes the agent more valuable.
+   *
+   * @returns the list of newly connected peers
+   */
+  async discoverAndConnect(
+    registry: RegistryClient,
+    bus: NetworkMessageBus
+  ): Promise<AgentProfile[]> {
+    const peers = await registry.discover();
+    const connected: AgentProfile[] = [];
+
+    for (const reg of peers) {
+      // Skip self
+      if (reg.agentId === this.profile.id) continue;
+      // Skip already-known agents
+      if (this.wallet.knownAgents.has(reg.agentId)) continue;
+
+      // Connect via WebSocket
+      await bus.connectTo(reg.endpoint.host, reg.endpoint.port, reg.agentId);
+
+      // Build a profile from the registration
+      const peerProfile: AgentProfile = {
+        id: reg.agentId,
+        name: reg.name,
+        ownerId: reg.agentId,
+        bio: "",
+        capabilities: reg.capabilities as AgentCapability[],
+        createdAt: reg.registeredAt,
+      };
+
+      // Send handshake
+      bus.sendMessage(this.profile.id, reg.agentId, "handshake", {
+        profile: this.profile,
+      });
+
+      // Record interaction
+      this.recordInteraction(reg.agentId);
+      this.learnAgent(peerProfile);
+      connected.push(peerProfile);
+    }
+
+    return connected;
   }
 
   // ── Persistence ──────────────────────────────────────────

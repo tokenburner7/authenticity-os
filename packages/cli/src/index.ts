@@ -7,6 +7,7 @@ import { verifyCommand } from "./commands/verify.js";
 import { reputationCommand } from "./commands/reputation.js";
 import { exportCommand } from "./commands/export.js";
 import { importCommand } from "./commands/import.js";
+import { agentCommand } from "./commands/agent.js";
 
 const program = new Command();
 
@@ -22,5 +23,6 @@ program.addCommand(verifyCommand);
 program.addCommand(reputationCommand);
 program.addCommand(exportCommand);
 program.addCommand(importCommand);
+program.addCommand(agentCommand);
 
 program.parse();
