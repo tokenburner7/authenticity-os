@@ -175,39 +175,44 @@ describe("auth vouch", () => {
 });
 
 describe("auth reputation show", () => {
-  it("shows reputation (vouch count) for current identity", () => {
+  it("shows reputation record for a vouched identity", () => {
     const storePath = makeTempPath();
 
-    // Create identity A (self)
+    // Create identity A (self) — issuer of the vouch
     run(`identity create --handle alice --store ${storePath}`);
-    const selfData = JSON.parse(readFileSync(storePath, "utf-8")) as {
+
+    // Create a target identity in a separate store
+    const targetStore = makeTempPath();
+    run(`identity create --handle bob --store ${targetStore}`);
+    const targetData = JSON.parse(readFileSync(targetStore, "utf-8")) as {
       identity: { id: string };
     };
 
-    // Vouch for self (using self as both issuer and target — for test simplicity)
-    run(`vouch --target ${selfData.identity.id} --store ${storePath}`);
+    // alice vouches for bob
+    run(`vouch --target ${targetData.identity.id} --store ${storePath}`);
 
-    // Show reputation
-    const result = run(`reputation show --store ${storePath}`);
+    // Show reputation for bob (the target)
+    const result = run(
+      `reputation show --identity ${targetData.identity.id} --store ${storePath}`,
+    );
     expect(result.status).toBe(0);
-
-    const rep = JSON.parse(result.stdout) as {
-      identityId: string;
-      vouchCount: number;
-      vouches: unknown[];
-    };
-    expect(rep.identityId).toBe(selfData.identity.id);
-    expect(rep.vouchCount).toBe(1);
-    expect(rep.vouches.length).toBe(1);
+    expect(result.stdout).toContain("Reputation Record");
+    expect(result.stdout).toContain(targetData.identity.id);
+    // One vouch → social-trust score > 0
+    expect(result.stdout).toMatch(/social-trust.*score=[1-9]/);
   });
 
-  it("shows zero vouches for identity with no vouches", () => {
+  it("reports no reputation record when identity has no vouches", () => {
     const storePath = makeTempPath();
-    run(`identity create --handle bob --store ${storePath}`);
+    run(`identity create --handle carol --store ${storePath}`);
+    const data = JSON.parse(readFileSync(storePath, "utf-8")) as {
+      identity: { id: string };
+    };
 
-    const result = run(`reputation show --store ${storePath}`);
+    const result = run(
+      `reputation show --identity ${data.identity.id} --store ${storePath}`,
+    );
     expect(result.status).toBe(0);
-    const rep = JSON.parse(result.stdout) as { vouchCount: number };
-    expect(rep.vouchCount).toBe(0);
+    expect(result.stdout).toContain("No reputation record");
   });
 });
