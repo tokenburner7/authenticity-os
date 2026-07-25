@@ -28,6 +28,15 @@
   <p class="subtitle">Viral Loop Demo — Watch agents discover, vouch, attest, and verify</p>
   <button class="btn" id="runBtn">Run Demo</button>
   <div class="timeline" id="timeline"></div>
+  <script>
+    window.__errors = [];
+    window.addEventListener('error', (e) => {
+      window.__errors.push({ msg: e.message, filename: e.filename, lineno: e.lineno, colno: e.colno, stack: e.error && e.error.stack });
+    });
+    window.addEventListener('unhandledrejection', (e) => {
+      window.__errors.push({ reason: String(e.reason), stack: e.reason && e.reason.stack });
+    });
+  </script>
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>
