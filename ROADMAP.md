@@ -61,5 +61,7 @@
 
 ## Stats (v0.4)
 
-- **136+ tests** across **22+ test suites**, all passing
-- **9 workspace projects**: @auth/protocol, @auth/agent, @auth/cli, @auth/registry-server, @auth/demo, @auth/brand-portal, @auth/widget, @auth/verification-api
+- **158 tests** across **23 test suites**, all passing
+- **9 workspace projects**: @auth/protocol, @auth/agent, @auth/cli, @auth/registry-server, @auth/verification-api, @auth/demo, @auth/brand-portal, @auth/widget
+- **End-to-end demo**: `make demo` (registry + 2 agents + CLI + verification API)
+- **Deployed**: Docker images (registry, verification-api), Vercel (demo, brand-portal)
