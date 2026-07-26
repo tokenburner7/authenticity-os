@@ -1,0 +1,21 @@
+services:
+  registry:
+    build:
+      context: .
+      dockerfile: Dockerfile.registry
+    ports:
+      - "4000:4000"
+    restart: unless-stopped
+
+  verification-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.verification
+    ports:
+      - "4001:4001"
+    volumes:
+      - verification-data:/data
+    restart: unless-stopped
+
+volumes:
+  verification-data:

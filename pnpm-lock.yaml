@@ -102,6 +102,9 @@ importers:
       '@auth/protocol':
         specifier: workspace:*
         version: link:../protocol
+      '@noble/hashes':
+        specifier: ^1.6.0
+        version: 1.8.0
       better-sqlite3:
         specifier: ^13.0.1
         version: 13.0.1
