@@ -23,14 +23,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --ignore-scripts && pnpm rebuild better-sqlite3
 
-      - name: Build protocol package (needed for widget type-check)
-        run: pnpm --filter @auth/protocol build
+      - name: Build
+        run: pnpm build
 
       - name: Type check
         run: pnpm -r lint
-
-      - name: Build
-        run: pnpm build
 
       - name: Test
         run: pnpm test
